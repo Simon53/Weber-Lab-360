@@ -105,6 +105,13 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/machines/brands/{brand}/reagents', [MachineController::class, 'getReagentsByBrand'])
         ->name('machines.reagents');
 
+// 🔹 AJAX for Proprietor/User (Machine settings drain,other..)
+    Route::post('/machine/save-drain', [MachineSettingController::class, 'saveDrain']);
+    Route::post('/machine/save-rodi', [MachineSettingController::class, 'saveRodi']);
+    Route::post('/machine/save-others', [MachineSettingController::class, 'saveOthers']);
+
+    Route::post('/device/send', [MachineSettingController::class, 'send']); 
+
     // ==========================================
     // 👤 User Management
     // ==========================================

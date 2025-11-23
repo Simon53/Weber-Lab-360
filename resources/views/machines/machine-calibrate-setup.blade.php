@@ -62,7 +62,7 @@
                                     <tr>
                                         <th>Value</th>
                                         <th>Created Date</th>
-                                        <th>Delete</th>
+                                        <th style="display:none">Delete</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -70,7 +70,7 @@
                                     <tr id="reactorRow-{{ $row->id }}">
                                         <td>{{ $row->value }}</td>
                                         <td>{{ $row->created_at->format('d M, Y H:i') }}</td>
-                                        <td><button class="btn btn-sm btn-danger deleteReactorBtn" data-id="{{ $row->id }}">Delete</button></td>
+                                        <td  style="display:none"><button class="btn btn-sm btn-danger deleteReactorBtn" data-id="{{ $row->id }}">Delete</button></td>
                                     </tr>
                                     @endforeach
                                 </tbody>
@@ -91,7 +91,7 @@
                                     <tr>
                                         <th>Value</th>
                                         <th>Created Date</th>
-                                        <th>Delete</th>
+                                        <th  style="display:none">Delete</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -99,7 +99,7 @@
                                     <tr id="ccRow-{{ $row->id }}">
                                         <td>{{ $row->value }}</td>
                                         <td>{{ $row->created_at->format('d M, Y H:i') }}</td>
-                                        <td><button class="btn btn-sm btn-danger deleteCcBtn" data-id="{{ $row->id }}">Delete</button></td>
+                                        <td  style="display:none"><button class="btn btn-sm btn-danger deleteCcBtn" data-id="{{ $row->id }}">Delete</button></td>
                                     </tr>
                                     @endforeach
                                 </tbody>

@@ -94,6 +94,10 @@
     font-size: 40%;
 }
 
+.modal-sm{
+    max-width:600px
+}
+
   
 /* Checked & disabled locations in modal */
 #modalLocationsBody .location-checkbox:checked + .form-check-label,
@@ -194,7 +198,6 @@
 
     <div class="container mt-5">
         <h4 class="mb-3">Machine Data List</h4>
-        
         <!-- DEBUG: Test Button -->
         <div class="mb-3">
             <button id="testBtn" class="btn btn-primary btn-sm">TEST: Click Me (jQuery Test)</button>
@@ -256,12 +259,12 @@
 
 <!-- Modal -->
 <div class="modal fade" id="addReagentModal" tabindex="-1" aria-labelledby="addReagentModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
     <div class="modal-content">
       <form id="assignReagentsForm">
         <div class="modal-header">
           <h5 class="modal-title" id="addReagentModalLabel">Assign Reagents & Locations</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          <button type="button" class="btn-danger" data-bs-dismiss="modal" aria-label="Close">X</button>
         </div>
         <div class="modal-body">
           <input type="hidden" id="modalBrandId" name="brand_id">
@@ -296,7 +299,7 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="submit" class="btn btn-success">Save & Sent</button>
         </div>
       </form>
     </div>
@@ -321,7 +324,7 @@
         error: function() { return this; }
     };
 </script>
-
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 console.log('SCRIPT VERSION: 3.0 - ' + new Date().toISOString());
@@ -574,49 +577,62 @@ jQuery(document).ready(function($) {
     // ------------------------
     // Submit form
     // ------------------------
-     document.getElementById('assignReagentsForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const allReagentIds = Array.from(modalReagentsBody.querySelectorAll('input.form-check-input')).map(i => parseInt(i.value));
-        const selectedReagents = Array.from(modalReagentsBody.querySelectorAll('input.form-check-input:checked')).map(i => parseInt(i.value));
-        if (selectedReagents.length !== allReagentIds.length) {
-            Swal.fire('Incomplete Selection', 'Select all reagents', 'warning');
-            return;
-        }
-        const missingLocs = selectedReagents.filter(rId => !currentMapping[rId]);
-        if (missingLocs.length > 0) {
-            Swal.fire('Missing Locations', 'Assign location for every reagent', 'warning');
-            return;
-        }
-        const payload = {
-            machine_id: {{ $machine->id }},
-            test_name: modalTestName.value,
-            brand_id: modalBrandId.value,
-            mappings: currentMapping
-        };
-        fetch("{{ route('machines.saveReagentLocation') }}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            },
-            body: JSON.stringify(payload)
-        })
-        .then(r => r.json())
-        .then(data => {
-            const modal = bootstrap.Modal.getInstance(document.getElementById('addReagentModal'));
-            if (modal) modal.hide();
-            if (data.status === 'success') {
-                Swal.fire('Success', 'The data has been saved.', 'success').then(() => location.reload());
-            } else {
-                Swal.fire('Error', data.message || 'Something went wrong', 'error');
-            }
-        })
-        .catch(() => {
-            const modal = bootstrap.Modal.getInstance(document.getElementById('addReagentModal'));
-            if (modal) modal.hide();
-            Swal.fire('Error', 'An error occurred while saving data.', 'error');
+  document.getElementById('assignReagentsForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const allReagentIds = Array.from(modalReagentsBody.querySelectorAll('input.form-check-input')).map(i => parseInt(i.value));
+    const selectedReagents = Array.from(modalReagentsBody.querySelectorAll('input.form-check-input:checked')).map(i => parseInt(i.value));
+
+    if (selectedReagents.length !== allReagentIds.length) {
+        Swal.fire('Incomplete Selection', 'Select all reagents', 'warning');
+        return;
+    }
+
+    const missingLocs = selectedReagents.filter(rId => !currentMapping[rId]);
+    if (missingLocs.length > 0) {
+        Swal.fire('Missing Locations', 'Assign location for every reagent', 'warning');
+        return;
+    }
+
+    const payload = {
+        machine_id: {{ $machine->id }},
+        test_name: modalTestName.value,
+        brand_id: modalBrandId.value,
+        mappings: currentMapping
+    };
+
+    fetch("{{ route('machines.saveReagentLocation') }}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+        const modalEl = document.getElementById('addReagentModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        // Optional: Success handling (আপনি চাইলে এখানে SweetAlert দিতে পারেন)
+    })
+    .catch(() => {
+        const modalEl = document.getElementById('addReagentModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        // 🔹 Error SweetAlert + page reload after OK
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'An error occurred while saving data.'
+        }).then(() => {
+            location.reload();
         });
     });
+});
+
 
     // No need for extra modal hidden event for reload
 
@@ -764,12 +780,14 @@ jQuery(document).ready(function($) {
             });
             
             console.log('$.ajax called successfully');
+            location.reload();
             
         } catch (err) {
             console.error('=== EXCEPTION IN performDelete ===');
             console.error('Error:', err);
             console.error('Stack:', err.stack);
             alert('JavaScript error: ' + err.message);
+            //location.reload();
         }
     }
 
@@ -809,6 +827,7 @@ jQuery(document).ready(function($) {
             }
         } catch (error) {
             console.warn('Failed to subscribe to machine channel:', error.message);
+           
         }
     }
 

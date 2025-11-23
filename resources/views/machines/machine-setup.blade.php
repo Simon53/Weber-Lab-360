@@ -33,7 +33,7 @@
                         @endif
 
                         {{-- ===================== DRAIN SECTION ===================== --}}
-                        <button type="button" class="btn btn-warning btn-sm mb-2" id="testButton">🧪 Test WebSocket</button>
+                        <button type="button" class="btn btn-warning btn-sm mb-2" style="display:none" id="testButton">🧪 Test WebSocket</button>
                         
                         <form id="drainForm">
                             @csrf
@@ -70,7 +70,7 @@
                                 </div>
 
                                 <div class="col-md-12 mt-3 text-right">
-                                    <button type="button" class="btn btn-primary btn-sm" id="saveDrainBtn">Save Drain</button>
+                                    <button type="button" class="btn btn-primary btn-sm" id="saveDrainBtn">Save & Sent Drain</button>
                                 </div>
                             </div>
                         </form>
@@ -113,7 +113,7 @@
                                 </div>
 
                                 <div class="col-md-12 mt-3 text-right">
-                                    <button type="button" class="btn btn-primary btn-sm" id="saveRodiBtn">Save RODI</button>
+                                    <button type="button" class="btn btn-primary btn-sm" id="saveRodiBtn">Save & Sent RODI</button>
                                 </div>
                             </div>
                         </form>
@@ -172,12 +172,9 @@
                                 </div>
 
                                 <div class="col-md-12 mt-3 text-right">
-                                    <button type="button" class="btn btn-primary btn-sm" id="saveOthersBtn">Save Others</button>
+                                    <button type="button" class="btn btn-primary btn-sm" id="saveOthersBtn">Save & Save Others</button>
                                 </div>
 
-                                <div class="col-md-12 mt-3 text-center">
-                                    <button type="submit" class="btn btn-success btn-lg">Submit</button>
-                                </div>
                             </div>
                         </form>
 
@@ -198,244 +195,234 @@
 const macId = "{{ $machine->mac_id }}";
 const machineId = "{{ $machine->id }}";
 
-console.log('🔍 Machine MAC ID:', macId);
-console.log('🔍 Machine ID:', machineId);
-
-// Wait for Echo to be ready
-setTimeout(function() {
-    if (window.Echo) {
-        const safeMac = macId.replace(/:/g, '');
-        const channelName = `machine.${safeMac}`;
-        console.log('🔍 Listening on channel:', channelName);
-        
-        // Listen to machine channel for WebSocket responses
-        window.Echo.channel(channelName)
-            .listen('.device.data', (e) => {
-                console.log("📡 WS Received:", e);
-            });
-        console.log('✅ WebSocket listening for machine:', macId);
-    } else {
-        console.warn('Echo not initialized');
-    }
-}, 200);
-
-// 🔹 Make radio buttons toggleable (can deselect)
-document.querySelectorAll('.toggleable').forEach(radio => {
-    radio.addEventListener('mousedown', function (e) {
-        if (this.checked) {
-            this.dataset.wasChecked = "true";
-        } else {
-            this.dataset.wasChecked = "false";
-        }
+// ===========================
+// 🔹 SAVE & RELOAD FUNCTION
+// ===========================
+function showSuccessAndReload(message) {
+    Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: message,
+        confirmButtonText: 'OK'
+    }).then(() => {
+        location.reload();
     });
+}
 
-    radio.addEventListener('click', function (e) {
-        if (this.dataset.wasChecked === "true") {
-            this.checked = false;
-            this.dataset.wasChecked = "false";
-            this.dispatchEvent(new Event('change')); // trigger change
-        }
+// ===========================
+// 🔹 ERROR POPUP
+// ===========================
+function showError(message) {
+    Swal.fire({
+        icon: 'error',
+        title: 'Error!',
+        text: message
     });
-});
+}
 
-// 🔹 Show/hide ml input based on selection
-document.querySelectorAll('input[name="drainOption"]').forEach(radio => {
-    radio.addEventListener('change', function () {
-        const group = document.getElementById('drainMlGroup');
-        group.style.display = (this.value === 'container' && this.checked) ? 'flex' : 'none';
-    });
-});
-
-document.querySelectorAll('input[name="rodiOption"]').forEach(radio => {
-    radio.addEventListener('change', function () {
-        const group = document.getElementById('rodiMlGroup');
-        group.style.display = (this.value === 'container' && this.checked) ? 'flex' : 'none';
-    });
-});
-
-// 🔹 Handle Drain Form Submission
+// ===========================
+// 🔹 DOCUMENT READY
+// ===========================
 $(document).ready(function(){
-    console.log('🟢 Drain form ready. Machine:', macId);
-    console.log('🟢 jQuery loaded:', typeof $ !== 'undefined');
-    console.log('🟢 Test button exists:', $('#testButton').length);
-    console.log('🟢 Save Drain button exists:', $('#saveDrainBtn').length);
-    
-    // Test button
-    $('#testButton').click(function(){
-        console.log('🧪 Test button clicked');
-        
-        const testData = new FormData();
-        testData.append('mac_id', macId);
-        testData.append('command', 'TEST-DRAIN-PAGE');
-        
-        fetch("/device/send", {
-            method: "POST",
-            headers: {
-                "X-CSRF-TOKEN": "{{ csrf_token() }}"
-            },
-            body: testData
-        })
-        .then(response => {
-            console.log("🧪 Test response status:", response.status);
-            return response.json();
-        })
-        .then(data => {
-            console.log("✅ Test command sent:", data);
-            alert('Test sent! Status: ' + JSON.stringify(data) + '. Check ESP32 serial monitor');
-        })
-        .catch(error => {
-            console.error("❌ Test failed:", error);
-            alert('Test failed! Error: ' + error.message);
+
+        // Show/hide ML input groups when radio option changes
+        function toggleMlGroup(radioName, groupSelector) {
+            const val = $(`input[name="${radioName}"]:checked`).val();
+            if (val === 'container') {
+                $(groupSelector).show();
+            } else {
+                $(groupSelector).hide();
+            }
+        }
+
+        // Initialize visibility on page load
+        toggleMlGroup('drainOption', '#drainMlGroup');
+        toggleMlGroup('rodiOption', '#rodiMlGroup');
+
+        // Attach change handlers
+        $('input[name="drainOption"]').on('change', function() {
+            toggleMlGroup('drainOption', '#drainMlGroup');
         });
-    });
-    
-    // Save Drain Button
+
+        $('input[name="rodiOption"]').on('change', function() {
+            toggleMlGroup('rodiOption', '#rodiMlGroup');
+        });
+
+
+    // -------------------------------------------
+    // 🔹 SAVE DRAIN
+    // -------------------------------------------
     $('#saveDrainBtn').click(function(){
-        console.log('💧 Save Drain button clicked');
-        
         const drainOption = $('input[name="drainOption"]:checked').val();
         const drainMl = $('input[name="drain_ml"]').val();
-        
-        console.log('Drain option:', drainOption, 'ML:', drainMl);
-        
+
         if (!drainOption) {
-            Swal.fire({icon:'warning', title:'Warning!', text:'Please select a drain option.'});
-            return;
+            return Swal.fire('Warning!', 'Please select a drain option.', 'warning');
         }
-        
+
         if (drainOption === 'container' && !drainMl) {
-            Swal.fire({icon:'warning', title:'Warning!', text:'Please enter container value.'});
-            return;
+            return Swal.fire('Warning!', 'Please enter container value.', 'warning');
         }
-        
-        // Build command for ESP32
-        let command = drainOption === 'pipe' ? 'drain=pipe' : `drain=container ${drainMl}`;
-        
-        console.log('💧 Sending command to ESP32:', command);
-        console.log('💧 MAC ID:', macId);
-        console.log('💧 URL:', "/device/send");
-        
-        // Send to ESP32 via WebSocket using fetch with FormData
-        const formData = new FormData();
-        formData.append('mac_id', macId);
-        formData.append('command', command);
-        
-        fetch("/device/send", {
-            method: "POST",
+
+        // Build ESP32 command
+        let command = drainOption === 'pipe'
+            ? 'drain=pipe'
+            : `drain=container ${drainMl}`;
+
+        // First save to DB
+        const drainPayload = { machine_id: machineId, type: drainOption, ml_value: drainMl };
+        console.log('Saving drain payload:', drainPayload);
+        fetch('/machine/save-drain', {
+            method: 'POST',
+            credentials: 'same-origin',
             headers: {
-                "X-CSRF-TOKEN": "{{ csrf_token() }}"
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
-            body: formData
+            body: JSON.stringify(drainPayload)
         })
-        .then(response => {
-            console.log("💧 Response status:", response.status);
-            return response.json();
+        .then(r => {
+            console.log('Save-drain response status:', r.status);
+            if (!r.ok) {
+                return r.text().then(text => { throw new Error('Save-drain failed: ' + r.status + ' ' + text); });
+            }
+            return r.json();
         })
-        .then(data => {
-            console.log("✅ Drain command sent successfully:", data);
-            Swal.fire({icon:'success', title:'Saved!', text:'Drain setup sent to ESP32 successfully.'});
+        .then(saveResp => {
+            // then send command to device
+            const formData = new FormData();
+            formData.append('mac_id', macId);
+            formData.append('command', command);
+
+            console.log('Sending device command for drain:', command);
+            return fetch('/device/send', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                body: formData
+            }).then(r => {
+                console.log('Device send status:', r.status);
+                return saveResp;
+            });
         })
-        .catch(error => {
-            console.error("❌ Error sending command:", error);
-            Swal.fire({icon:'error', title:'Error!', text:'Failed to send command to ESP32.'});
+        .then(() => {
+            showSuccessAndReload('Drain setup saved & sent to ESP32.');
+        })
+        .catch(err => {
+            console.error('Error saving/sending drain:', err);
+            showError('Failed to save/send Drain command: ' + (err.message || 'unknown'));
         });
     });
-    
-    // Save RODI Button
+
+    // -------------------------------------------
+    // 🔹 SAVE RODI
+    // -------------------------------------------
     $('#saveRodiBtn').click(function(){
-        console.log('💧 Save RODI button clicked');
-        
         const rodiOption = $('input[name="rodiOption"]:checked').val();
         const rodiMl = $('input[name="rodi_ml"]').val();
-        
-        console.log('RODI option:', rodiOption, 'ML:', rodiMl);
-        
+
         if (!rodiOption) {
-            Swal.fire({icon:'warning', title:'Warning!', text:'Please select a RODI option.'});
-            return;
+            return Swal.fire('Warning!', 'Please select a RODI option.', 'warning');
         }
-        
+
         if (rodiOption === 'container' && !rodiMl) {
-            Swal.fire({icon:'warning', title:'Warning!', text:'Please enter container value.'});
-            return;
+            return Swal.fire('Warning!', 'Please enter container value.', 'warning');
         }
-        
-        // Build command for ESP32
-        let command = rodiOption === 'pipe' ? 'rodi=supply' : `rodi=container ${rodiMl}`;
-        
-        console.log('💧 Sending RODI command to ESP32:', command);
-        console.log('💧 MAC ID:', macId);
-        
-        // Send to ESP32 via WebSocket using fetch with FormData
-        const formData = new FormData();
-        formData.append('mac_id', macId);
-        formData.append('command', command);
-        
-        fetch("/device/send", {
-            method: "POST",
+
+        let command = rodiOption === 'pipe'
+            ? 'rodi=supply'
+            : `rodi=container ${rodiMl}`;
+
+        // Save to DB then send to device
+        const rodiPayload = { machine_id: machineId, type: rodiOption, ml_value: rodiMl };
+        console.log('Saving rodi payload:', rodiPayload);
+        fetch('/machine/save-rodi', {
+            method: 'POST',
+            credentials: 'same-origin',
             headers: {
-                "X-CSRF-TOKEN": "{{ csrf_token() }}"
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
-            body: formData
+            body: JSON.stringify(rodiPayload)
         })
-        .then(response => {
-            console.log("💧 RODI Response status:", response.status);
-            return response.json();
+        .then(r => {
+            console.log('Save-rodi response status:', r.status);
+            if (!r.ok) return r.text().then(text => { throw new Error('Save-rodi failed: ' + r.status + ' ' + text); });
+            return r.json();
         })
-        .then(data => {
-            console.log("✅ RODI command sent successfully:", data);
-            Swal.fire({icon:'success', title:'Saved!', text:'RODI setup sent to ESP32 successfully.'});
+        .then(saveResp => {
+            const formData = new FormData();
+            formData.append('mac_id', macId);
+            formData.append('command', command);
+
+            console.log('Sending device command for rodi:', command);
+            return fetch('/device/send', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                body: formData
+            }).then(r => { console.log('Device send status (rodi):', r.status); return saveResp; });
         })
-        .catch(error => {
-            console.error("❌ Error sending RODI command:", error);
-            Swal.fire({icon:'error', title:'Error!', text:'Failed to send command to ESP32.'});
+        .then(() => {
+            showSuccessAndReload('RODI setup saved & sent to ESP32.');
+        })
+        .catch(err => {
+            console.error('Error saving/sending rodi:', err);
+            showError('Failed to save/send RODI command: ' + (err.message || 'unknown'));
         });
     });
-    
-    // Save Others Button (Toggle Switches)
+
+    // -------------------------------------------
+    // 🔹 SAVE OTHERS
+    // -------------------------------------------
     $('#saveOthersBtn').click(function(){
-        console.log('🔘 Save Others button clicked');
-        
-        // Get toggle switch states
+
         const clarityTest = $('input[data-target="claritytest"]').is(':checked') ? 'ON' : 'OFF';
         const temTest = $('input[data-target="temtest"]').is(':checked') ? 'ON' : 'OFF';
         const alarm = $('input[data-target="alarm"]').is(':checked') ? 'ON' : 'OFF';
-        
-        console.log('Clarity Test:', clarityTest);
-        console.log('Tem. Test:', temTest);
-        console.log('Alarm:', alarm);
-        
-        // Build command for ESP32
-        const command = `clarity=${clarityTest},temp=${temTest},alarm=${alarm}`;
-        
-        console.log('🔘 Sending Others command to ESP32:', command);
-        console.log('🔘 MAC ID:', macId);
-        
-        // Send to ESP32 via WebSocket
-        const formData = new FormData();
-        formData.append('mac_id', macId);
-        formData.append('command', command);
-        
-        fetch("/device/send", {
-            method: "POST",
+
+        let command = `clarity=${clarityTest},temp=${temTest},alarm=${alarm}`;
+
+        // Save 'others' to DB first
+        const othersPayload = { machine_id: machineId, clarity: clarityTest, tem: temTest, alarm: alarm };
+        console.log('Saving others payload:', othersPayload);
+        fetch('/machine/save-others', {
+            method: 'POST',
+            credentials: 'same-origin',
             headers: {
-                "X-CSRF-TOKEN": "{{ csrf_token() }}"
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
-            body: formData
+            body: JSON.stringify(othersPayload)
         })
-        .then(response => {
-            console.log("🔘 Others Response status:", response.status);
-            return response.json();
+        .then(r => {
+            console.log('Save-others response status:', r.status);
+            if (!r.ok) return r.text().then(text => { throw new Error('Save-others failed: ' + r.status + ' ' + text); });
+            return r.json();
         })
-        .then(data => {
-            console.log("✅ Others command sent successfully:", data);
-            Swal.fire({icon:'success', title:'Saved!', text:'Settings sent to ESP32 successfully.'});
+        .then(saveResp => {
+            const formData = new FormData();
+            formData.append('mac_id', macId);
+            formData.append('command', command);
+
+            console.log('Sending device command for others:', command);
+            return fetch('/device/send', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                body: formData
+            }).then(r => { console.log('Device send status (others):', r.status); return saveResp; });
         })
-        .catch(error => {
-            console.error("❌ Error sending Others command:", error);
-            Swal.fire({icon:'error', title:'Error!', text:'Failed to send command to ESP32.'});
+        .then(() => {
+            showSuccessAndReload('Other settings saved & sent to ESP32.');
+        })
+        .catch(err => {
+            console.error('Error saving/sending others:', err);
+            showError('Failed to save/send settings to ESP32: ' + (err.message || 'unknown'));
         });
     });
+
 });
 </script>
+
 @endsection
